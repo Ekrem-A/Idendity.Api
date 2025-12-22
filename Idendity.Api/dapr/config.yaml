@@ -1,0 +1,59 @@
+# Dapr Configuration for IdentityService
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: identityservice-config
+spec:
+  # Enable mTLS for service-to-service communication
+  mtls:
+    enabled: true
+    workloadCertTTL: 24h
+    allowedClockSkew: 15m
+  
+  # Access control policies
+  accessControl:
+    defaultAction: deny
+    trustDomain: "ecommerce"
+    policies:
+      # Allow Gateway to call IdentityService
+      - appId: gateway-service
+        defaultAction: allow
+        trustDomain: "ecommerce"
+        namespace: "default"
+        operations:
+          - name: /api/auth/*
+            httpVerb: ["POST"]
+            action: allow
+          - name: /api/users/*
+            httpVerb: ["GET", "PUT", "DELETE"]
+            action: allow
+      
+      # Allow internal services to validate tokens
+      - appId: catalog-service
+        defaultAction: deny
+        trustDomain: "ecommerce"
+        namespace: "default"
+        operations:
+          - name: /api/users/*
+            httpVerb: ["GET"]
+            action: allow
+      
+      - appId: order-service
+        defaultAction: deny
+        trustDomain: "ecommerce"
+        namespace: "default"
+        operations:
+          - name: /api/users/*
+            httpVerb: ["GET"]
+            action: allow
+  
+  # Tracing configuration
+  tracing:
+    samplingRate: "1"
+    zipkin:
+      endpointAddress: "http://zipkin:9411/api/v2/spans"
+  
+  # Metrics configuration
+  metrics:
+    enabled: true
+
