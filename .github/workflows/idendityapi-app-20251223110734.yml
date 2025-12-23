@@ -23,6 +23,26 @@ jobs:
     steps:
     - name: Checkout to the branch
       uses: actions/checkout@v4
+    - name: Validate Azure OIDC secrets format
+      shell: bash
+      env:
+        TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      run: |
+        set -euo pipefail
+        re='^[0-9a-fA-F-]{36}$'
+        for v in TENANT_ID SUBSCRIPTION_ID CLIENT_ID; do
+          val="${!v}"
+          if [[ -z "$val" ]]; then
+            echo "::error title=Missing secret::$v is empty. Add it in GitHub Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          if [[ ! "$val" =~ $re ]]; then
+            echo "::error title=Invalid secret format::$v must be a raw GUID like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (no \${} braces, no quotes, no spaces)."
+            exit 1
+          fi
+        done
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
     - name: Log in to container registry

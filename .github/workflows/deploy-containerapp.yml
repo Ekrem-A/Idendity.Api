@@ -22,6 +22,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate Azure OIDC secrets format
+        shell: bash
+        env:
+          TENANT_ID: 1848f2bf-cb8a-4ea5-9550-97c0efb13010
+          SUBSCRIPTION_ID: 738c64a2-b084-4538-a907-3d3783a42b92
+          CLIENT_ID: c588f4f8-19a2-4804-b5a6-0f2ba87ef3f5
+        run: |
+          set -euo pipefail
+          re='^[0-9a-fA-F-]{36}$'
+          for v in TENANT_ID SUBSCRIPTION_ID CLIENT_ID; do
+            val="${!v}"
+            if [[ -z "$val" ]]; then
+              echo "::error title=Missing secret::$v is empty. Add it in GitHub Settings → Secrets and variables → Actions."
+              exit 1
+            fi
+            if [[ ! "$val" =~ $re ]]; then
+              echo "::error title=Invalid secret format::$v must be a raw GUID like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (no \${} braces, no quotes, no spaces)."
+              exit 1
+            fi
+          done
+
       # Option A (recommended): OIDC (no client secret)
       # You must set GitHub Secrets:
       # - AZURE_CLIENT_ID
