@@ -2,7 +2,14 @@ name: .NET uygulaması oluşturup idendityapi-app-20251223110734 kapsayıcı uyg
 on:
   push:
     branches:
+    - main
     - master
+  workflow_dispatch:
+
+# Required for Azure OIDC login
+permissions:
+  id-token: write
+  contents: read
 env:
   CONTAINER_APP_CONTAINER_NAME: idendityapi
   CONTAINER_APP_NAME: idendityapi-app-20251223110734
@@ -37,7 +44,9 @@ jobs:
     - name: Azure Login
       uses: azure/login@v2
       with:
-        creds: ${{ secrets.idendityapi_app_20251223110734_SPN }}
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
     - name: Deploy to containerapp
       uses: azure/CLI@v2
       with:
