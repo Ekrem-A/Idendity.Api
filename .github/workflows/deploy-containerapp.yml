@@ -34,6 +34,11 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Ensure Azure CLI extensions
+        run: |
+          set -euo pipefail
+          az extension add --name containerapp --upgrade
+
       # Option B (classic): Service Principal Secret
       # Uncomment this step and remove the OIDC login step above if you prefer AZURE_CREDENTIALS.
       # - name: Azure Login (Service Principal Secret)

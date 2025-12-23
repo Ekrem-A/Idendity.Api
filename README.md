@@ -131,6 +131,62 @@ GitHub → Repository → **Settings → Secrets and variables → Actions**
   - `ACR_NAME` (örn: `acrecommercedev`)
   - `ACR_LOGIN_SERVER` (örn: `acrecommercedev.azurecr.io`)
 
+#### OIDC kurulumu (Azure tarafı) — adım adım
+
+Bu adımlar Azure’da bir **App Registration / Service Principal** oluşturur ve GitHub Actions’a **Federated Credential** ekler (client secret gerekmez).
+
+1) Azure CLI ile tenant/subscription bilgilerini al:
+
+```bash
+az account show --query "{tenantId:tenantId, subscriptionId:id}" -o json
+```
+
+2) App Registration oluştur:
+
+```bash
+APP_NAME="github-oidc-identityservice"
+APP_ID=$(az ad app create --display-name "$APP_NAME" --query appId -o tsv)
+az ad sp create --id "$APP_ID"
+echo "APP_ID=$APP_ID"
+```
+
+3) GitHub Federated Credential ekle (main branch örneği):
+
+`OWNER/REPO` kısmını kendi repo adınla değiştir.
+
+```bash
+OWNER_REPO="OWNER/REPO"
+az ad app federated-credential create \
+  --id "$APP_ID" \
+  --parameters "{
+    \"name\": \"github-main\",
+    \"issuer\": \"https://token.actions.githubusercontent.com\",
+    \"subject\": \"repo:${OWNER_REPO}:ref:refs/heads/main\",
+    \"audiences\": [\"api://AzureADTokenExchange\"]
+  }"
+```
+
+4) Yetkiler (role assignment):
+
+- Container Apps update + RG içindeki kaynaklar için: **Contributor** (Resource Group scope)
+- ACR’a image push için: **AcrPush** (ACR scope)
+
+```bash
+SP_OBJECT_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
+
+RG_ID=$(az group show -n "rg-ecommerce-dev" --query id -o tsv)
+az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal --role "Contributor" --scope "$RG_ID"
+
+ACR_ID=$(az acr show -n "acrecommercedev" --query id -o tsv)
+az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal --role "AcrPush" --scope "$ACR_ID"
+```
+
+5) GitHub Secrets’ları doldur:
+
+- `AZURE_CLIENT_ID` = **APP_ID**
+- `AZURE_TENANT_ID` = `az account show --query tenantId -o tsv`
+- `AZURE_SUBSCRIPTION_ID` = `az account show --query id -o tsv`
+
 #### Alternatif: AZURE_CREDENTIALS ile login (client secret)
 
 OIDC yerine klasik yöntem istersen workflow’daki “Azure Login (Service Principal Secret)” adımını açıp şu secret’ı ekle:
