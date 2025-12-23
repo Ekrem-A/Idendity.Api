@@ -8,6 +8,26 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Railway commonly provides DATABASE_URL for PostgreSQL. If ConnectionStrings:DefaultConnection is not set,
+// we convert DATABASE_URL to an Npgsql-compatible connection string.
+if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+{
+    var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (!string.IsNullOrWhiteSpace(databaseUrl))
+    {
+        var uri = new Uri(databaseUrl);
+        var userInfo = uri.UserInfo.Split(':', 2);
+        var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
+        var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+        var host = uri.Host;
+        var port = uri.Port > 0 ? uri.Port : 5432;
+        var database = uri.AbsolutePath.TrimStart('/');
+
+        builder.Configuration["ConnectionStrings:DefaultConnection"] =
+            $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+    }
+}
+
 // Add Azure Key Vault configuration if configured
 builder.Configuration.AddAzureKeyVaultIfConfigured();
 
@@ -126,10 +146,10 @@ builder.Services.AddCors(options =>
 
 // Configure Health Checks
 builder.Services.AddHealthChecks()
-    .AddSqlServer(
+    .AddNpgSql(
         builder.Configuration.GetConnectionString("DefaultConnection") ?? "",
-        name: "sqlserver",
-        tags: new[] { "db", "sql", "sqlserver" });
+        name: "postgres",
+        tags: new[] { "db", "sql", "postgres" });
 
 // Add Dapr client (for service-to-service communication)
 builder.Services.AddDaprClient();

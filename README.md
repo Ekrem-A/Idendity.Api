@@ -77,122 +77,49 @@ docker build -t identity-service -f Idendity.Api/Dockerfile .
 docker run -p 8080:8080 identity-service
 ```
 
-## Azure'a Deploy
+## Railway + PostgreSQL ile Deploy (Docker)
 
-### 1. Altyapı Kurulumu
+Bu proje artık **PostgreSQL** kullanacak şekilde ayarlanmıştır.
 
-```bash
-cd infra
+### Railway'de PostgreSQL oluşturma
 
-# PowerShell
-./deploy.ps1 -Environment dev -SqlAdminLogin sqladmin
+Railway projesinde **Add → Database → PostgreSQL** ekle.
 
-# Bash
-./deploy.sh dev eastus ecommerce
-```
+Railway, uygulama servisinde genelde otomatik olarak şu environment variable’ı verir:
 
-### 2. Container Image Push
+- `DATABASE_URL`
 
-```bash
-az acr login --name acrecommercedev
-docker build -t acrecommercedev.azurecr.io/identity-service:latest -f Idendity.Api/Dockerfile .
-docker push acrecommercedev.azurecr.io/identity-service:latest
-```
+Uygulama, `ConnectionStrings:DefaultConnection` boş ise `DATABASE_URL`’ı otomatik olarak Postgres connection string’e çevirir.
 
-### 3. Container App Güncelleme
+### Railway'de Docker ile deploy
 
-```bash
-az containerapp update \
-  --name identity-service-dev \
-  --resource-group rg-ecommerce-dev \
-  --image acrecommercedev.azurecr.io/identity-service:latest
-```
+1) Railway’de yeni servis oluştur (Dockerfile ile).
+2) Repository olarak bu projeyi bağla.
+3) Environment variables:
+   - **`DATABASE_URL`** (PostgreSQL tarafından otomatik gelir)
+   - **`Jwt__SecretKey`** (en az 32 karakter)
+   - (opsiyonel) `Jwt__Issuer`, `Jwt__Audience`
 
-### 4. (Opsiyonel) GitHub Actions ile Deploy (CI/CD)
+### PostgreSQL Migration
 
-Repo içinde örnek workflow: `.github/workflows/deploy-containerapp.yml`
-
-Bu yaklaşımda `azure/login` adımı **SERVICE_PRINCIPAL** ile giriş yapar ve şu değerler sağlanmazsa şu hatayı alırsın:
-
-- `Error: Login failed... auth-type: SERVICE_PRINCIPAL... Ensure 'client-id' and 'tenant-id' are supplied.`
-
-#### Gerekli GitHub Secrets (OIDC önerilir)
-
-GitHub → Repository → **Settings → Secrets and variables → Actions**
-
-- **Secrets**
-  - `AZURE_CLIENT_ID`
-  - `AZURE_TENANT_ID`
-  - `AZURE_SUBSCRIPTION_ID`
-
-- **Variables**
-  - `RESOURCE_GROUP_NAME` (örn: `rg-ecommerce-dev`)
-  - `CONTAINER_APP_NAME` (örn: `identity-service-dev`)
-  - `ACR_NAME` (örn: `acrecommercedev`)
-  - `ACR_LOGIN_SERVER` (örn: `acrecommercedev.azurecr.io`)
-
-#### OIDC kurulumu (Azure tarafı) — adım adım
-
-Bu adımlar Azure’da bir **App Registration / Service Principal** oluşturur ve GitHub Actions’a **Federated Credential** ekler (client secret gerekmez).
-
-1) Azure CLI ile tenant/subscription bilgilerini al:
+SQL Server migration’ları Postgres ile uyumlu değildir. PostgreSQL için migration’ı yeniden üret:
 
 ```bash
-az account show --query "{tenantId:tenantId, subscriptionId:id}" -o json
+cd Idendity.Api
+
+# (gerekirse) tooling
+dotnet tool install --global dotnet-ef
+
+# Yeni migration (PostgreSQL)
+dotnet ef migrations add InitialCreate_Postgres --project ..\Idendity.Infrastructure --startup-project .\Idendity.Api
+
+# DB'ye uygula
+dotnet ef database update --project ..\Idendity.Infrastructure --startup-project .\Idendity.Api
 ```
 
-2) App Registration oluştur:
-
-```bash
-APP_NAME="github-oidc-identityservice"
-APP_ID=$(az ad app create --display-name "$APP_NAME" --query appId -o tsv)
-az ad sp create --id "$APP_ID"
-echo "APP_ID=$APP_ID"
-```
-
-3) GitHub Federated Credential ekle (main branch örneği):
-
-`OWNER/REPO` kısmını kendi repo adınla değiştir.
-
-```bash
-OWNER_REPO="OWNER/REPO"
-az ad app federated-credential create \
-  --id "$APP_ID" \
-  --parameters "{
-    \"name\": \"github-main\",
-    \"issuer\": \"https://token.actions.githubusercontent.com\",
-    \"subject\": \"repo:${OWNER_REPO}:ref:refs/heads/main\",
-    \"audiences\": [\"api://AzureADTokenExchange\"]
-  }"
-```
-
-4) Yetkiler (role assignment):
-
-- Container Apps update + RG içindeki kaynaklar için: **Contributor** (Resource Group scope)
-- ACR’a image push için: **AcrPush** (ACR scope)
-
-```bash
-SP_OBJECT_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
-
-RG_ID=$(az group show -n "rg-ecommerce-dev" --query id -o tsv)
-az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal --role "Contributor" --scope "$RG_ID"
-
-ACR_ID=$(az acr show -n "acrecommercedev" --query id -o tsv)
-az role assignment create --assignee-object-id "$SP_OBJECT_ID" --assignee-principal-type ServicePrincipal --role "AcrPush" --scope "$ACR_ID"
-```
-
-5) GitHub Secrets’ları doldur:
-
-- `AZURE_CLIENT_ID` = **APP_ID**
-- `AZURE_TENANT_ID` = `az account show --query tenantId -o tsv`
-- `AZURE_SUBSCRIPTION_ID` = `az account show --query id -o tsv`
-
-#### Alternatif: AZURE_CREDENTIALS ile login (client secret)
-
-OIDC yerine klasik yöntem istersen workflow’daki “Azure Login (Service Principal Secret)” adımını açıp şu secret’ı ekle:
-
-- **Secrets**
-  - `AZURE_CREDENTIALS` (JSON)
+Railway’de migration’ı uygulamak için en basit yöntem:
+- Deploy öncesi local’de `database update` çalıştırıp DB’yi hazırlamak, ya da
+- Railway “deploy command”/“pre-deploy” adımı kullanıyorsan orada `dotnet ef database update` çalıştırmak.
 
 ## Yapılandırma
 
