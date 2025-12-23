@@ -108,6 +108,36 @@ az containerapp update \
   --image acrecommercedev.azurecr.io/identity-service:latest
 ```
 
+### 4. (Opsiyonel) GitHub Actions ile Deploy (CI/CD)
+
+Repo içinde örnek workflow: `.github/workflows/deploy-containerapp.yml`
+
+Bu yaklaşımda `azure/login` adımı **SERVICE_PRINCIPAL** ile giriş yapar ve şu değerler sağlanmazsa şu hatayı alırsın:
+
+- `Error: Login failed... auth-type: SERVICE_PRINCIPAL... Ensure 'client-id' and 'tenant-id' are supplied.`
+
+#### Gerekli GitHub Secrets (OIDC önerilir)
+
+GitHub → Repository → **Settings → Secrets and variables → Actions**
+
+- **Secrets**
+  - `AZURE_CLIENT_ID`
+  - `AZURE_TENANT_ID`
+  - `AZURE_SUBSCRIPTION_ID`
+
+- **Variables**
+  - `RESOURCE_GROUP_NAME` (örn: `rg-ecommerce-dev`)
+  - `CONTAINER_APP_NAME` (örn: `identity-service-dev`)
+  - `ACR_NAME` (örn: `acrecommercedev`)
+  - `ACR_LOGIN_SERVER` (örn: `acrecommercedev.azurecr.io`)
+
+#### Alternatif: AZURE_CREDENTIALS ile login (client secret)
+
+OIDC yerine klasik yöntem istersen workflow’daki “Azure Login (Service Principal Secret)” adımını açıp şu secret’ı ekle:
+
+- **Secrets**
+  - `AZURE_CREDENTIALS` (JSON)
+
 ## Yapılandırma
 
 ### appsettings.json

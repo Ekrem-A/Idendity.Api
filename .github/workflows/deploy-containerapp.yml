@@ -1,0 +1,63 @@
+name: Deploy to Azure Container Apps
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+# Required for OIDC login (recommended)
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  DOCKERFILE_PATH: Idendity.Api/Dockerfile
+  IMAGE_NAME: identity-service
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Option A (recommended): OIDC (no client secret)
+      # You must set GitHub Secrets:
+      # - AZURE_CLIENT_ID
+      # - AZURE_TENANT_ID
+      # - AZURE_SUBSCRIPTION_ID
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Option B (classic): Service Principal Secret
+      # Uncomment this step and remove the OIDC login step above if you prefer AZURE_CREDENTIALS.
+      # - name: Azure Login (Service Principal Secret)
+      #   uses: azure/login@v2
+      #   with:
+      #     creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR Login
+        run: az acr login --name "${{ vars.ACR_NAME }}"
+
+      - name: Build and push image
+        run: |
+          set -euo pipefail
+          IMAGE="${{ vars.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          docker build -t "$IMAGE" -f "${{ env.DOCKERFILE_PATH }}" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+      - name: Deploy to Azure Container Apps
+        run: |
+          set -euo pipefail
+          az containerapp update \
+            --name "${{ vars.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP_NAME }}" \
+            --image "${IMAGE}"
+
+
