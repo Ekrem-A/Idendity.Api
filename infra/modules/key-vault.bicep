@@ -66,3 +66,4 @@ resource jwtSecretKeySecret 'Microsoft.KeyVault/vaults/secrets@2023-02-01' = {
 output name string = keyVault.name
 output vaultUri string = keyVault.properties.vaultUri
 
+

@@ -72,3 +72,4 @@ if [ -n "$ACR_LOGIN_SERVER" ]; then
     echo "   az containerapp update --name identity-service-$ENVIRONMENT --resource-group $RESOURCE_GROUP --image $ACR_LOGIN_SERVER/identity-service:latest"
 fi
 
+

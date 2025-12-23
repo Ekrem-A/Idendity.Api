@@ -26,3 +26,4 @@ public class Result
     public static Result Failure(IEnumerable<string> errors) => new() { IsSuccess = false, Errors = errors, Error = errors.FirstOrDefault() };
 }
 
+

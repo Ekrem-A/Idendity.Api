@@ -173,3 +173,4 @@ output name string = identityService.name
 output fqdn string = identityService.properties.configuration.ingress.fqdn
 output principalId string = identityService.identity.principalId
 
+

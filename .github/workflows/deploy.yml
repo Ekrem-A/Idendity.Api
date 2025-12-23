@@ -106,3 +106,4 @@ jobs:
           sleep 30
           curl -f "https://$FQDN/api/health" || echo "Health check pending..."
 
+

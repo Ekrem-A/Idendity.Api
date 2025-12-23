@@ -48,3 +48,4 @@ output environmentId string = containerAppsEnvironment.id
 output environmentName string = containerAppsEnvironment.name
 output defaultDomain string = containerAppsEnvironment.properties.defaultDomain
 
+

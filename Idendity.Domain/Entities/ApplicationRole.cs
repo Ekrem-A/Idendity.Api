@@ -30,3 +30,4 @@ public class ApplicationUserRole
     public virtual ApplicationRole Role { get; set; } = null!;
 }
 
+

@@ -69,3 +69,4 @@ output serverName string = sqlServer.name
 output databaseName string = sqlDatabase.name
 output connectionString string = 'Server=tcp:${sqlServer.properties.fullyQualifiedDomainName},1433;Database=${databaseName};User ID=${adminLogin};Password=${adminPassword};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
 
+

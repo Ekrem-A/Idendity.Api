@@ -22,3 +22,4 @@ public class ApplicationRoleIdentity : IdentityRole<Guid>
     }
 }
 
+

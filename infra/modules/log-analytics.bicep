@@ -36,3 +36,4 @@ output workspaceId string = logAnalyticsWorkspace.id
 output workspaceKey string = logAnalyticsWorkspace.listKeys().primarySharedKey
 output workspaceName string = logAnalyticsWorkspace.name
 
+

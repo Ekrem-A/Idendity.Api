@@ -76,3 +76,4 @@ if ($acrLoginServer) {
     Write-Host "   az containerapp update --name identity-service-$Environment --resource-group $resourceGroupName --image $acrLoginServer/identity-service:latest"
 }
 
+

@@ -35,3 +35,4 @@ public class ApplicationUser
     public string FullName => $"{FirstName} {LastName}".Trim();
 }
 
+

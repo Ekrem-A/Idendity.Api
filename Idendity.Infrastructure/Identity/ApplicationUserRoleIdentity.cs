@@ -11,3 +11,4 @@ public class ApplicationUserRoleIdentity : IdentityUserRole<Guid>
     public virtual ApplicationRoleIdentity Role { get; set; } = null!;
 }
 
+

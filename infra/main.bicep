@@ -120,3 +120,4 @@ output acrLoginServer string = acr.outputs.loginServer
 output identityServiceUrl string = identityService.outputs.fqdn
 output keyVaultName string = keyVault.outputs.name
 
+

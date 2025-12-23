@@ -18,3 +18,4 @@ public class ApplicationUserIdentity : IdentityUser<Guid>
     public virtual ICollection<ApplicationUserRoleIdentity> UserRoles { get; set; } = new List<ApplicationUserRoleIdentity>();
 }
 
+
