@@ -35,10 +35,6 @@ USER appuser
 # Copy published files
 COPY --from=publish /app/publish .
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl --fail http://localhost:8080/health || exit 1
-
 # Expose ports
 EXPOSE 8080
 EXPOSE 8081

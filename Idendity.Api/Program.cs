@@ -2,15 +2,22 @@ using AspNetCoreRateLimit;
 using Idendity.Api.Middleware;
 using Idendity.Application;
 using Idendity.Infrastructure;
-using Idendity.Infrastructure.Extensions;
+using Idendity.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Railway commonly provides DATABASE_URL for PostgreSQL. If ConnectionStrings:DefaultConnection is not set,
-// we convert DATABASE_URL to an Npgsql-compatible connection string.
-if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+// Railway sets PORT for inbound traffic. If present, listen on that port.
+var appPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(appPort))
+{
+    builder.WebHost.UseUrls($"http://+:{appPort}");
+}
+
+// Railway commonly provides DATABASE_URL for PostgreSQL. If present, we prefer it and convert to an
+// Npgsql-compatible connection string (this overrides appsettings.json).
 {
     var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
     if (!string.IsNullOrWhiteSpace(databaseUrl))
@@ -20,16 +27,20 @@ if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Default
         var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
         var password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
         var host = uri.Host;
-        var port = uri.Port > 0 ? uri.Port : 5432;
+        var dbPort = uri.Port > 0 ? uri.Port : 5432;
         var database = uri.AbsolutePath.TrimStart('/');
 
         builder.Configuration["ConnectionStrings:DefaultConnection"] =
-            $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
+            $"Host={host};Port={dbPort};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
     }
 }
 
-// Add Azure Key Vault configuration if configured
-builder.Configuration.AddAzureKeyVaultIfConfigured();
+// If DATABASE_URL is not set, we fall back to ConnectionStrings:DefaultConnection from config (appsettings/env vars).
+if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+{
+    throw new InvalidOperationException(
+        "Database connection is not configured. Set DATABASE_URL (Railway) or ConnectionStrings:DefaultConnection.");
+}
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -202,6 +213,17 @@ app.MapSubscribeHandler(); // Dapr pub/sub endpoint
 
 // Health check endpoints
 app.MapHealthChecks("/health");
+
+// Optional: run EF Core migrations automatically on startup (useful for Railway)
+// Set RUN_MIGRATIONS=true in environment to enable.
+if (string.Equals(Environment.GetEnvironmentVariable("RUN_MIGRATIONS"), "true", StringComparison.OrdinalIgnoreCase))
+{
+    using var migrationScope = app.Services.CreateScope();
+    var db = migrationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    Log.Information("RUN_MIGRATIONS=true detected. Applying EF Core migrations...");
+    await db.Database.MigrateAsync();
+    Log.Information("EF Core migrations applied successfully.");
+}
 
 // Seed roles on startup
 using (var scope = app.Services.CreateScope())

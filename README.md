@@ -99,6 +99,7 @@ Uygulama, `ConnectionStrings:DefaultConnection` boş ise `DATABASE_URL`’ı oto
    - **`DATABASE_URL`** (PostgreSQL tarafından otomatik gelir)
    - **`Jwt__SecretKey`** (en az 32 karakter)
    - (opsiyonel) `Jwt__Issuer`, `Jwt__Audience`
+   - (opsiyonel) **`RUN_MIGRATIONS=true`** (container açılışında migration otomatik uygulasın)
 
 ### PostgreSQL Migration
 
